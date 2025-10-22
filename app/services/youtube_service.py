@@ -98,9 +98,9 @@ class YouTubeService:
             # Process and score
             songs = self._process_and_score(details, normalized_q)
             
-            # Cache results
+            # Cache results (usando model_dump(mode="json") para serializar datetime)
             cache_data = {
-                "results": [s.model_dump() for s in songs],
+                "results": [s.model_dump(mode="json") for s in songs],
                 "timestamp": int(time.time() * 1000),
                 "query": query
             }
@@ -172,10 +172,10 @@ class YouTubeService:
             song_db = self.songs_repo.get_or_create_from_youtube_meta(song_create)
             self.session.commit()
             
-            # Cache
+            # Cache (serializando datetime a string)
             song_read = SongRead.model_validate(song_db)
             cache_data = {
-                "data": song_read.model_dump(),
+                "data": song_read.model_dump(mode="json"),
                 "timestamp": int(time.time() * 1000)
             }
             self.cache.set(cache_key, cache_data, self.cache_ttl)

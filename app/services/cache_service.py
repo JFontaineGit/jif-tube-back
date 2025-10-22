@@ -3,6 +3,7 @@ from sqlmodel import Session, select, delete
 from app.repositories.cache import CacheRepository
 from app.models import CacheEntry
 import time
+from fastapi.encoders import jsonable_encoder
 
 class CacheService:
     """Wrapper sobre CacheRepository con helpers adicionales."""
@@ -29,7 +30,9 @@ class CacheService:
             data: Datos a cachear (debe ser JSON-serializable)
             ttl_minutes: Tiempo de vida en minutos
         """
-        self.repo.set(key, data, ttl_minutes)
+        # Convertir a tipos JSON-serializables (convierte datetime a ISO string)
+        serializable_data = jsonable_encoder(data)
+        self.repo.set(key, serializable_data, ttl_minutes)
 
     def invalidate(self, key: str) -> None:
         """Invalida una entrada específica."""
