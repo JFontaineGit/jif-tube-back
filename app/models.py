@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict
 from sqlmodel import SQLModel, Field, Relationship, JSON
+from sqlalchemy import UniqueConstraint
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 
@@ -14,7 +15,7 @@ class PasswordError(Exception):
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(max_length=100, unique=True, index=True)
     email: str = Field(max_length=255, unique=True, index=True)
@@ -27,6 +28,7 @@ class User(SQLModel, table=True):
     # Relaciones
     search_history: List["SearchHistory"] = Relationship(back_populates="user")
     library: List["UserLibrary"] = Relationship(back_populates="user")
+    liked_songs: List["LikedSong"] = Relationship(back_populates="user")
 
 class SearchHistory(SQLModel, table=True):
     __tablename__ = "search_history"
@@ -57,8 +59,9 @@ class Song(SQLModel, table=True):
     thumbnails: Optional[Dict] = Field(default=None, sa_type=JSON)  # jsonb
     published_at: Optional[datetime] = Field(default=None)
     created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     library_entries: List["UserLibrary"] = Relationship(back_populates="song")
+    liked_entries: List["LikedSong"] = Relationship(back_populates="song")
 
 class UserLibrary(SQLModel, table=True):
     __tablename__ = "user_library"
@@ -67,6 +70,21 @@ class UserLibrary(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id")
     song_id: str = Field(foreign_key="songs.id", max_length=255)
     added_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     user: Optional[User] = Relationship(back_populates="library")
     song: Optional[Song] = Relationship(back_populates="library_entries")
+
+
+class LikedSong(SQLModel, table=True):
+    __tablename__ = "liked_songs"
+    __table_args__ = (
+        UniqueConstraint("user_id", "song_id", name="unique_liked_song"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id")
+    song_id: str = Field(foreign_key="songs.id", max_length=255)
+    liked_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    user: Optional[User] = Relationship(back_populates="liked_songs")
+    song: Optional[Song] = Relationship(back_populates="liked_entries")

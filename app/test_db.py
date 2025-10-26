@@ -12,6 +12,7 @@ with SessionLocal() as session:
     users_repo = UsersRepository(session)
     songs_repo = SongsRepository(session)
     library_repo = LibraryRepository(session)
+    liked_repo = LikedSongsRepository(session)
     cache_repo = CacheRepository(session)
     search_repo = SearchRepository(session)
     
@@ -46,20 +47,30 @@ with SessionLocal() as session:
         session.commit()
         assert entry.user_id == created_user.id
         print(f"Song agregado a library")
-        
+
         # 4. List library
         library = library_repo.list_by_user(created_user.id)
         assert len(library) == 1
         print(f"Library tiene {len(library)} song(s)")
-        
-        # 5. Test cache
+
+        # 5. Like song
+        like = liked_repo.add(created_user.id, song.id)
+        session.commit()
+        assert like.user_id == created_user.id
+        print("Song marcado como like")
+
+        liked = liked_repo.list_by_user(created_user.id)
+        assert len(liked) == 1
+        print(f"Likes tiene {len(liked)} song(s)")
+
+        # 6. Test cache
         cache_repo.set("test_key", {"foo": "bar"}, ttl_minutes=1)
         session.commit()
         cached = cache_repo.get("test_key")
         assert cached == {"foo": "bar"}
         print(f"✅ Cache funcionando")
-        
-        # 6. Log search
+
+        # 7. Log search
         search = search_repo.log_search(created_user.id, "test query")
         session.commit()
         assert search.count == 1
