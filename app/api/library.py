@@ -9,8 +9,21 @@ from app.api.dependencies import get_user_id
 
 router = APIRouter(prefix="/library", tags=["Library"])
 
+AUTH_RESPONSES = {
+    status.HTTP_401_UNAUTHORIZED: {"description": "Missing or invalid access token"}
+}
 
-@router.post("/", response_model=LibraryItemRead, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/",
+    response_model=LibraryItemRead,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        **AUTH_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {"description": "Song not found"},
+        status.HTTP_409_CONFLICT: {"description": "Song already stored in library"},
+    },
+)
 def add_to_library(
     item: LibraryItemCreate,
     user_id: int = Depends(get_user_id),
@@ -21,7 +34,7 @@ def add_to_library(
     
     - **song_id**: YouTube video ID de la canción
     
-    Requiere autenticación.
+    Requiere autenticación: Header `Authorization: Bearer <token>`.
     """
     repo = LibraryRepository(db)
     songs_repo = SongsRepository(db)
@@ -45,7 +58,14 @@ def add_to_library(
         )
 
 
-@router.delete("/{song_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{song_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        **AUTH_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {"description": "Song not found in your library"},
+    },
+)
 def remove_from_library(
     song_id: str = Path(..., min_length=10, max_length=15, description="YouTube video ID"),
     user_id: int = Depends(get_user_id),
@@ -54,7 +74,7 @@ def remove_from_library(
     """
     Remueve una canción de tu biblioteca.
     
-    Requiere autenticación.
+    Requiere autenticación: Header `Authorization: Bearer <token>`.
     """
     repo = LibraryRepository(db)
     
@@ -68,7 +88,11 @@ def remove_from_library(
     return None 
 
 
-@router.get("/", response_model=List[LibraryItemRead])
+@router.get(
+    "/",
+    response_model=List[LibraryItemRead],
+    responses={**AUTH_RESPONSES},
+)
 def list_library(
     user_id: int = Depends(get_user_id),
     db: Session = Depends(get_db)
@@ -76,7 +100,7 @@ def list_library(
     """
     Lista todas las canciones en tu biblioteca.
     
-    Requiere autenticación.
+    Requiere autenticación: Header `Authorization: Bearer <token>`.
     """
     repo = LibraryRepository(db)
     entries = repo.list_by_user(user_id)
