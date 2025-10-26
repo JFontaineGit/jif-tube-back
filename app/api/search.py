@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlmodel import Session
 from typing import List, Optional
+from uuid import UUID
 from app.db.session import get_db
 from app.services.youtube_service import YouTubeService
 from app.schemas.search import SongSearchResult
@@ -29,7 +30,7 @@ def search_videos(
     service = YouTubeService(db)
     
     # Extraer user_id si está autenticado
-    user_id = current_user.get("user_id") if current_user else None
+    user_id: Optional[UUID] = current_user.get("user_id") if current_user else None
     
     try:
         results = service.search(

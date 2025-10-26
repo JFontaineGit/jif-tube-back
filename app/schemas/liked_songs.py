@@ -4,9 +4,10 @@ from uuid import UUID
 from datetime import datetime
 from .songs import SongRead
 
-class LibraryItemCreate(BaseModel):
-    song_id: str  # YT video_id
-    
+
+class LikedSongCreate(BaseModel):
+    song_id: str
+
     @field_validator('song_id')
     @classmethod
     def validate_song_id(cls, v: str) -> str:
@@ -14,11 +15,12 @@ class LibraryItemCreate(BaseModel):
             raise ValueError('Invalid YouTube video ID')
         return v
 
-class LibraryItemRead(BaseModel):
+
+class LikedSongRead(BaseModel):
     id: UUID
     user_id: UUID
     song_id: str
-    added_at: datetime
+    liked_at: datetime
     song: Optional[SongRead] = None
-    
+
     model_config = {"from_attributes": True}

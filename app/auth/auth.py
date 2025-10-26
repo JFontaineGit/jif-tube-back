@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import select, Session
 from datetime import datetime, timedelta
 from typing import Optional
+from uuid import UUID
 import jwt
 from jwt import PyJWTError
 
@@ -145,8 +146,12 @@ async def login(login_data: UserLogin, session: SessionDep):
         )
     
     # Crear tokens
-    access_token = create_access_token(data={"sub": str(user.id), "username": user.username})
-    refresh_token = create_refresh_token(data={"sub": str(user.id), "username": user.username})
+    access_token = create_access_token(
+        data={"sub": str(user.id), "user_id": str(user.id), "username": user.username}
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": str(user.id), "user_id": str(user.id), "username": user.username}
+    )
     
     return Token(
         access_token=access_token,
@@ -169,15 +174,23 @@ async def refresh_token(session: SessionDep, credentials: HTTPAuthorizationCrede
         
         user_id = payload.get("sub")
         username = payload.get("username")
-        
+
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
             )
-        
+
         # Verificar que el usuario existe y está activo
-        user = session.get(User, int(user_id))
+        try:
+            user_uuid = UUID(str(user_id))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+
+        user = session.get(User, user_uuid)
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -185,8 +198,12 @@ async def refresh_token(session: SessionDep, credentials: HTTPAuthorizationCrede
             )
         
         # Crear nuevos tokens
-        access_token = create_access_token(data={"sub": str(user.id), "username": user.username})
-        refresh_token = create_refresh_token(data={"sub": str(user.id), "username": user.username})
+        access_token = create_access_token(
+            data={"sub": str(user.id), "user_id": str(user.id), "username": user.username}
+        )
+        refresh_token = create_refresh_token(
+            data={"sub": str(user.id), "user_id": str(user.id), "username": user.username}
+        )
         
         return Token(
             access_token=access_token,
@@ -224,8 +241,16 @@ async def get_current_user_info(session: SessionDep, credentials: HTTPAuthorizat
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
             )
-        
-        user = session.get(User, int(user_id))
+
+        try:
+            user_uuid = UUID(str(user_id))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+
+        user = session.get(User, user_uuid)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

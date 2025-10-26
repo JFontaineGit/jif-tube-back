@@ -1,5 +1,6 @@
 from sqlmodel import select, Session
 from typing import List, Optional
+from uuid import UUID
 from app.models import SearchHistory
 import time
 
@@ -7,7 +8,7 @@ class SearchRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def log_search(self, user_id: int, query: str, timestamp: Optional[int] = None) -> SearchHistory:
+    def log_search(self, user_id: UUID, query: str, timestamp: Optional[int] = None) -> SearchHistory:
         """Loggea búsqueda; incrementa count si existe."""
         if timestamp is None:
             timestamp = int(time.time() * 1000)
@@ -38,7 +39,7 @@ class SearchRepository:
         self.session.refresh(new_search)
         return new_search
 
-    def get_history_by_user(self, user_id: int, limit: int = 10) -> List[SearchHistory]:
+    def get_history_by_user(self, user_id: UUID, limit: int = 10) -> List[SearchHistory]:
         """Lista reciente por user, ordenada por timestamp DESC."""
         statement = (
             select(SearchHistory)
