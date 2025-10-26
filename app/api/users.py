@@ -9,7 +9,18 @@ from app.api.dependencies import require_admin, get_user_id
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("/me", response_model=UserRead)
+# Nota: utilizamos respuestas explícitas para dejar claro en el esquema OpenAPI
+# que estos endpoints requieren autenticación vía Bearer token.
+
+
+@router.get(
+    "/me",
+    response_model=UserRead,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Missing or invalid access token"},
+        status.HTTP_404_NOT_FOUND: {"description": "User not found"},
+    },
+)
 def read_current_user(
     user_id: int = Depends(get_user_id),
     db: Session = Depends(get_db)
@@ -28,7 +39,14 @@ def read_current_user(
     return UserRead.model_validate(user)
 
 
-@router.get("/", response_model=List[UserRead])
+@router.get(
+    "/",
+    response_model=List[UserRead],
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Missing or invalid access token"},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required"},
+    },
+)
 def list_users(
     skip: int = Query(0, ge=0, description="Número de registros a saltar"),
     limit: int = Query(100, ge=1, le=500, description="Cantidad máxima de resultados"),
