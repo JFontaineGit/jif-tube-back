@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 from typing import Optional, Dict
+from uuid import UUID
 from app.db.session import get_db
 from app.services.auth_service import AuthService
 
@@ -36,6 +37,16 @@ def get_current_user(
     
     try:
         payload = service.verify_access_token(token)
+        user_id = payload.get("user_id")
+        if user_id is not None:
+            try:
+                payload["user_id"] = UUID(str(user_id))
+            except ValueError as err:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token: malformed user_id",
+                    headers={"WWW-Authenticate": "Bearer"},
+                ) from err
         return payload
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
@@ -73,6 +84,12 @@ def get_current_user_optional(
     
     try:
         payload = service.verify_access_token(token)
+        user_id = payload.get("user_id")
+        if user_id is not None:
+            try:
+                payload["user_id"] = UUID(str(user_id))
+            except ValueError:
+                return None
         return payload
     except:
         return None  # No falla, solo retorna None
@@ -124,9 +141,9 @@ def require_admin(
     return current_user
 
 
-def get_user_id(current_user: Dict = Depends(get_current_user)) -> int:
+def get_user_id(current_user: Dict = Depends(get_current_user)) -> UUID:
     """
-    Helper dependency: Extrae solo el user_id del token.
+    Helper dependency: Extrae el user_id (UUID) del token.
     
     Útil para endpoints que solo necesitan el ID.
     """
@@ -136,4 +153,4 @@ def get_user_id(current_user: Dict = Depends(get_current_user)) -> int:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Invalid token: missing user_id"
         )
-    return int(user_id)
+    return user_id

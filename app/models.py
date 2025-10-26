@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict
+from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, JSON
 from sqlalchemy import UniqueConstraint
 from passlib.context import CryptContext
@@ -16,7 +17,7 @@ class PasswordError(Exception):
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     username: str = Field(max_length=100, unique=True, index=True)
     email: str = Field(max_length=255, unique=True, index=True)
     password_hash: str = Field(max_length=255)
@@ -32,12 +33,12 @@ class User(SQLModel, table=True):
 
 class SearchHistory(SQLModel, table=True):
     __tablename__ = "search_history"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     query: str = Field(max_length=500)
     timestamp: int  # UNIX epoch ms
     count: int = Field(default=1)
-    user_id: Optional[int] = Field(foreign_key="users.id")
+    user_id: Optional[UUID] = Field(foreign_key="users.id")
     
     user: Optional[User] = Relationship(back_populates="search_history")
 
@@ -65,9 +66,9 @@ class Song(SQLModel, table=True):
 
 class UserLibrary(SQLModel, table=True):
     __tablename__ = "user_library"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
     song_id: str = Field(foreign_key="songs.id", max_length=255)
     added_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -81,8 +82,8 @@ class LikedSong(SQLModel, table=True):
         UniqueConstraint("user_id", "song_id", name="unique_liked_song"),
     )
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
     song_id: str = Field(foreign_key="songs.id", max_length=255)
     liked_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
 

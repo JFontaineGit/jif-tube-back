@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session
+from uuid import UUID
 import jwt
 from jwt import PyJWTError
 
@@ -31,15 +32,20 @@ async def get_current_user(
         if payload.get("type") != "access":
             raise credentials_exception
             
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_raw = payload.get("sub")
+        if user_id_raw is None:
             raise credentials_exception
-            
+
+        try:
+            user_uuid = UUID(str(user_id_raw))
+        except ValueError:
+            raise credentials_exception
+
     except PyJWTError:
         raise credentials_exception
-    
+
     # Buscar usuario en la base de datos
-    user = session.get(User, int(user_id))
+    user = session.get(User, user_uuid)
     if user is None:
         raise credentials_exception
     

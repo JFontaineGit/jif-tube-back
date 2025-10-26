@@ -1,5 +1,6 @@
 from sqlmodel import select, Session
 from typing import List, Optional
+from uuid import UUID
 from app.models import LikedSong
 
 
@@ -7,7 +8,7 @@ class LikedSongsRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def add(self, user_id: int, song_id: str) -> LikedSong:
+    def add(self, user_id: UUID, song_id: str) -> LikedSong:
         """Agrega una canción a la lista de likes (idempotente)."""
         existing = self.get_entry(user_id, song_id)
         if existing:
@@ -19,7 +20,7 @@ class LikedSongsRepository:
         self.session.refresh(new_entry)
         return new_entry
 
-    def remove(self, user_id: int, song_id: str) -> bool:
+    def remove(self, user_id: UUID, song_id: str) -> bool:
         """Elimina un like."""
         entry = self.get_entry(user_id, song_id)
         if entry:
@@ -28,7 +29,7 @@ class LikedSongsRepository:
             return True
         return False
 
-    def get_entry(self, user_id: int, song_id: str) -> Optional[LikedSong]:
+    def get_entry(self, user_id: UUID, song_id: str) -> Optional[LikedSong]:
         """Obtiene un like específico."""
         statement = select(LikedSong).where(
             LikedSong.user_id == user_id,
@@ -36,7 +37,7 @@ class LikedSongsRepository:
         )
         return self.session.exec(statement).first()
 
-    def list_by_user(self, user_id: int) -> List[LikedSong]:
+    def list_by_user(self, user_id: UUID) -> List[LikedSong]:
         """Lista los likes del usuario ordenados por fecha."""
         statement = (
             select(LikedSong)

@@ -1,13 +1,13 @@
 from fastapi import HTTPException, status
 from sqlmodel import Session
 from typing import Optional, Dict
+from uuid import UUID
 from datetime import datetime, timezone
 from app.repositories.users import UsersRepository
 from app.repositories.cache import CacheRepository
 from app.core.security import jwt_handler, hash_password, verify_password
 from app.schemas.users import UserCreate, UserRead, Token
 from app.models import User
-from app.core.config import settings
 
 class AuthService:
     """Service para autenticación y autorización."""
@@ -71,11 +71,11 @@ class AuthService:
         
         # Generar tokens usando la clase
         access = self.jwt.create_access_token(
+            user.id,
             user.username,
-            user.id,  # ✅ Pasa user_id
             [user.role]
         )
-        refresh = self.jwt.create_refresh_token(user.username, user.id)
+        refresh = self.jwt.create_refresh_token(user.id, user.username)
         
         return Token(
             access_token=access,
@@ -100,31 +100,41 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        username = payload.get("sub")
-        if not username:
+        user_id_raw = payload.get("user_id")
+        if not user_id_raw:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload"
             )
-        
+
+        try:
+            user_id = UUID(str(user_id_raw))
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload"
+            ) from err
+
+        username = payload.get("username")
+
         # Verificar usuario
-        user = self.users_repo.get_by_username(username)
+        user = self.users_repo.get_by_id(user_id)
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User not found or inactive"
             )
-        
+
         # Blacklistear el refresh viejo
         self._blacklist_token(refresh_token, "refresh")
-        
+
         # Generar nuevos
         new_access = self.jwt.create_access_token(
-            username,
-            payload.get("user_id"),  # ✅ Usa user_id del token
+            user.id,
+            user.username,
             [user.role]
         )
-        new_refresh = self.jwt.create_refresh_token(username, payload.get("user_id"))
+        new_refresh = self.jwt.create_refresh_token(user.id, user.username)
     
         return Token(
             access_token=new_access,

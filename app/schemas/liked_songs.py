@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
+from uuid import UUID
 from datetime import datetime
 from .songs import SongRead
 
@@ -16,8 +17,8 @@ class LikedSongCreate(BaseModel):
 
 
 class LikedSongRead(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     song_id: str
     liked_at: datetime
     song: Optional[SongRead] = None

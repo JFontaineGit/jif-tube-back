@@ -1,5 +1,6 @@
 from sqlmodel import select, Session
 from typing import Optional, List
+from uuid import UUID
 from app.models import User
 
 class UsersRepository:
@@ -13,7 +14,7 @@ class UsersRepository:
         self.session.refresh(user)
         return user
 
-    def get_by_id(self, user_id: int) -> Optional[User]:
+    def get_by_id(self, user_id: UUID) -> Optional[User]:
         """Obtiene por ID."""
         return self.session.get(User, user_id)
 
@@ -34,7 +35,7 @@ class UsersRepository:
         self.session.refresh(user)
         return user
 
-    def delete(self, user_id: int) -> bool:
+    def delete(self, user_id: UUID) -> bool:
         """Borra user (cascade a history/library)."""
         user = self.get_by_id(user_id)
         if user:
