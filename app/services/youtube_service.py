@@ -385,28 +385,34 @@ class YouTubeService:
         return songs[:self.max_results]
 
     def _process_single_video(self, item: Dict[str, Any]) -> Optional[SongCreate]:
-        """Parse common fields de un video."""
+        """Parse common fields de un video y seleccionar el mejor thumbnail con debug."""
         try:
             snippet = item.get("snippet", {})
             content_details = item.get("contentDetails", {})
-            
+
             video_id = item.get("id", "")
             if not video_id:
                 return None
-            
+
             # Thumbnails
             thumbnails_data = snippet.get("thumbnails", {})
             thumbnail_url = self._get_best_thumbnail(thumbnails_data)
+
+            # ----- Debugging thumbnails -----
+            print(f"[DEBUG] Thumbnails for video {video_id}: {thumbnails_data}")
+            print(f"[DEBUG] Selected thumbnail for video {video_id}: {thumbnail_url}")
+            # --------------------------------
+
             thumbnails = {"default": thumbnail_url} if thumbnail_url else None
-            
+
             # Duration
             duration_iso = content_details.get("duration", "PT0S")
             duration_seconds = self._parse_duration(duration_iso)
-            
+
             # Published date
             published_at_str = snippet.get("publishedAt", "")
             published_at = self._parse_datetime(published_at_str)
-            
+
             return SongCreate(
                 id=video_id,
                 title=snippet.get("title", "Unknown"),
@@ -415,7 +421,7 @@ class YouTubeService:
                 thumbnails=thumbnails,
                 published_at=published_at
             )
-            
+
         except Exception as e:
             print(f"Error processing video {item.get('id')}: {e}")
             return None

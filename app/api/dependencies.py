@@ -3,7 +3,6 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 from typing import Any, Dict, Optional
 from uuid import UUID
-
 from app.db.session import get_db
 from app.repositories.users import UsersRepository
 from app.services.auth_service import AuthService

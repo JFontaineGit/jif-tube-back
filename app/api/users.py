@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session
 from typing import List
+from uuid import UUID
 from app.db.session import get_db
 from app.repositories.users import UsersRepository
 from app.schemas.users import UserRead
