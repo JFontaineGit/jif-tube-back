@@ -5,7 +5,8 @@ from uuid import UUID
 from app.db.session import get_db
 from app.repositories.users import UsersRepository
 from app.schemas.users import UserRead
-from app.api.dependencies import require_admin, get_user_id
+from app.api.dependencies import require_admin, get_current_user
+from app.models import User
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -19,25 +20,11 @@ router = APIRouter(prefix="/users", tags=["Users"])
     response_model=UserRead,
     responses={
         status.HTTP_401_UNAUTHORIZED: {"description": "Missing or invalid access token"},
-        status.HTTP_404_NOT_FOUND: {"description": "User not found"},
     },
 )
-def read_current_user(
-    user_id: UUID = Depends(get_user_id),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtiene el perfil del usuario actual.
-    
-    Requiere autenticación.
-    """
-    user = UsersRepository(db).get_by_id(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    return UserRead.model_validate(user)
+def read_current_user(current_user: User = Depends(get_current_user)):
+    """Obtiene el perfil del usuario autenticado."""
+    return UserRead.model_validate(current_user)
 
 
 @router.get(
@@ -51,7 +38,7 @@ def read_current_user(
 def list_users(
     skip: int = Query(0, ge=0, description="Número de registros a saltar"),
     limit: int = Query(100, ge=1, le=500, description="Cantidad máxima de resultados"),
-    admin: dict = Depends(require_admin),
+    _admin_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """

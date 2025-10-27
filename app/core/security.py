@@ -74,21 +74,30 @@ class JWTHandler:
 
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
-    def create_refresh_token(self, user_id: UUID, username: str) -> str:
+    def create_refresh_token(
+        self,
+        user_id: UUID,
+        username: str,
+        scopes: Optional[List[str]] = None,
+    ) -> str:
         """Crea un refresh token con claims alineadas al access token."""
+        if scopes is None:
+            scopes = []
+
         now = datetime.now(timezone.utc)
         expire = now + timedelta(days=self.refresh_token_expire_days)
-        
+
         payload = {
             "sub": str(user_id),
             "user_id": str(user_id),
             "username": username,
+            "scopes": scopes,
             "exp": expire,
             "iat": now,
             "jti": str(uuid.uuid4()),
             "type": "refresh"
         }
-        
+
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
     def decode_token(self, token: str) -> Optional[Dict[str, Any]]:

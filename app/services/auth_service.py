@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from sqlmodel import Session
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from uuid import UUID
 from datetime import datetime, timezone
 from app.repositories.users import UsersRepository
@@ -69,13 +69,15 @@ class AuthService:
                 detail="Inactive user"
             )
         
+        scopes = self._build_scopes(user)
+
         # Generar tokens usando la clase
         access = self.jwt.create_access_token(
             user.id,
             user.username,
-            [user.role]
+            scopes
         )
-        refresh = self.jwt.create_refresh_token(user.id, user.username)
+        refresh = self.jwt.create_refresh_token(user.id, user.username, scopes)
         
         return Token(
             access_token=access,
@@ -115,8 +117,6 @@ class AuthService:
                 detail="Invalid token payload"
             ) from err
 
-        username = payload.get("username")
-
         # Verificar usuario
         user = self.users_repo.get_by_id(user_id)
         if not user or not user.is_active:
@@ -129,12 +129,13 @@ class AuthService:
         self._blacklist_token(refresh_token, "refresh")
 
         # Generar nuevos
+        scopes = self._build_scopes(user)
         new_access = self.jwt.create_access_token(
             user.id,
             user.username,
-            [user.role]
+            scopes
         )
-        new_refresh = self.jwt.create_refresh_token(user.id, user.username)
+        new_refresh = self.jwt.create_refresh_token(user.id, user.username, scopes)
     
         return Token(
             access_token=new_access,
@@ -175,6 +176,23 @@ class AuthService:
             )
         
         return payload
+
+    def _build_scopes(self, user: User) -> List[str]:
+        """Genera lista de scopes coherente con el estado del usuario."""
+        scopes: List[str] = []
+
+        role = (user.role or "").strip().lower()
+        if role:
+            scopes.append(role)
+
+        # Todos los usuarios tienen el scope "user" además del rol específico.
+        scopes.append("user")
+
+        if user.is_active:
+            scopes.append("active")
+
+        # Elimina duplicados preservando el orden de inserción
+        return list(dict.fromkeys(scopes))
 
     def _blacklist_token(self, token: str, token_type: str) -> None:
         """Agrega token a blacklist."""

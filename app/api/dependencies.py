@@ -1,21 +1,21 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
-from typing import Optional, Dict
+from typing import Any, Dict, Optional
 from uuid import UUID
 from app.db.session import get_db
+from app.repositories.users import UsersRepository
 from app.services.auth_service import AuthService
+from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 def require_bearer_token(token: str = Depends(oauth2_scheme)) -> str:
-    """Ensures that a Bearer token is present and returns it."""
+    """Ensure that a Bearer token is present and return it."""
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid access token. Include Authorization: Bearer <token>",
-            headers={"WWW-Authenticate": "Bearer"},
+        raise _bearer_exception(
+            "Missing or invalid access token. Include Authorization: Bearer <token>"
         )
     return token
 
@@ -23,134 +23,86 @@ def require_bearer_token(token: str = Depends(oauth2_scheme)) -> str:
 def get_current_user(
     token: str = Depends(require_bearer_token),
     db: Session = Depends(get_db)
-) -> Dict:
-    """
-    Dependency: Verifica access token y retorna payload.
-    
-    Raises:
-        HTTPException 401 si token inválido
-        
-    Returns:
-        Payload con: sub (username), user_id, scopes
-    """
+) -> User:
+    """Return the authenticated user associated with the given access token."""
     service = AuthService(db)
-    
+
     try:
         payload = service.verify_access_token(token)
-        user_id = payload.get("user_id")
-        if user_id is not None:
-            try:
-                payload["user_id"] = UUID(str(user_id))
-            except ValueError as err:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token: malformed user_id",
-                    headers={"WWW-Authenticate": "Bearer"},
-                ) from err
-        return payload
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-            headers = {"WWW-Authenticate": "Bearer"}
-            if exc.headers:
-                headers.update(exc.headers)
-            detail = exc.detail or "Missing or invalid access token. Include Authorization: Bearer <token>"
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=detail,
-                headers=headers,
-            )
+            raise _bearer_exception(exc.detail or "Could not validate credentials") from exc
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Could not validate credentials: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+
+    return _load_user_from_payload(db, payload)
 
 
 def get_current_user_optional(
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
-) -> Optional[Dict]:
-    """
-    Dependency: Auth opcional (no falla si no hay token).
-    
-    Returns:
-        Payload si token válido, None si no hay token o es inválido
-    """
+) -> Optional[User]:
+    """Optional auth dependency. Returns the user or ``None`` if missing/invalid."""
     if not token:
         return None
+
     service = AuthService(db)
-    
+
     try:
         payload = service.verify_access_token(token)
-        user_id = payload.get("user_id")
-        if user_id is not None:
-            try:
-                payload["user_id"] = UUID(str(user_id))
-            except ValueError:
-                return None
-        return payload
-    except:
-        return None  # No falla, solo retorna None
+        user = _load_user_from_payload(db, payload)
+    except HTTPException:
+        return None
+
+    if not user.is_active:
+        return None
+
+    return user
 
 
-def get_current_active_user(
-    current_user: Dict = Depends(get_current_user)
-) -> Dict:
-    """
-    Extiende get_current_user para verificar que el user esté activo.
-    
-    En el futuro podés agregar:
-    - Verificación de email
-    - Verificación de banned status
-    - Etc.
-    """
-    # Si necesitás verificar is_active desde DB:
-    # user = UsersRepository(db).get_by_id(current_user["user_id"])
-    # if not user.is_active:
-    #     raise HTTPException(403, "Inactive user")
-    
+def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """Return the authenticated user ensuring it is active."""
+    if not current_user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
     return current_user
 
 
-def require_admin(
-    current_user: Dict = Depends(get_current_user)
-) -> Dict:
-    """
-    Dependency: Requiere rol admin.
-    
-    Raises:
-        HTTPException 403 si no es admin
-    """
-    scopes = current_user.get("scopes", [])
-    
-    # Validar que scopes sea lista
-    if not isinstance(scopes, list):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Invalid token scopes format"
-        )
-    
-    if "admin" not in scopes:
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require that the current user has administrative privileges."""
+    if current_user.role not in {"admin", "superuser"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-    
     return current_user
 
 
-def get_user_id(current_user: Dict = Depends(get_current_user)) -> UUID:
-    """
-    Helper dependency: Extrae el user_id (UUID) del token.
-    
-    Útil para endpoints que solo necesitan el ID.
-    """
-    user_id = current_user.get("user_id")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Invalid token: missing user_id"
-        )
-    return user_id
+def get_user_id(current_user: User = Depends(get_current_user)) -> UUID:
+    """Helper dependency: extract the user's UUID from the authenticated user."""
+    return current_user.id
+
+
+def _load_user_from_payload(db: Session, payload: Dict[str, Any]) -> User:
+    """Resolve a user instance from the decoded JWT payload."""
+    user_id_raw = payload.get("user_id") or payload.get("sub")
+    if not user_id_raw:
+        raise _bearer_exception("Invalid token payload: missing user_id")
+
+    try:
+        user_uuid = UUID(str(user_id_raw))
+    except (TypeError, ValueError) as err:
+        raise _bearer_exception("Invalid token: malformed user_id") from err
+
+    user = UsersRepository(db).get_by_id(user_uuid)
+    if not user:
+        raise _bearer_exception("User not found")
+
+    return user
+
+
+def _bearer_exception(detail: str) -> HTTPException:
+    """Create a standardized 401 response for bearer authentication errors."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
