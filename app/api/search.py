@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlmodel import Session
 from typing import List, Optional
+from uuid import UUID
 from app.db.session import get_db
 from app.services.youtube_service import YouTubeService
 from app.schemas.search import SongSearchResult
 from app.api.dependencies import get_current_user_optional
+from app.models import User
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
@@ -14,7 +16,7 @@ def search_videos(
     q: str = Query(..., min_length=1, max_length=500, description="Término de búsqueda"),
     max_results: int = Query(10, ge=1, le=50, description="Cantidad máxima de resultados"),
     region_code: Optional[str] = Query(None, min_length=2, max_length=2, description="Código de región (e.g., AR, US)"),
-    current_user: Optional[dict] = Depends(get_current_user_optional),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
@@ -29,7 +31,7 @@ def search_videos(
     service = YouTubeService(db)
     
     # Extraer user_id si está autenticado
-    user_id = current_user.get("user_id") if current_user else None
+    user_id: Optional[UUID] = current_user.id if current_user else None
     
     try:
         results = service.search(

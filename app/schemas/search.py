@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
+from uuid import UUID
 from .songs import SongRead
 
 class SearchCreate(BaseModel):
@@ -17,11 +18,11 @@ class SearchCreate(BaseModel):
         return v
 
 class SearchRead(BaseModel):
-    id: int
+    id: UUID
     query: str
     timestamp: int
     count: int
-    user_id: int
+    user_id: UUID
     
     model_config = {"from_attributes": True}
     

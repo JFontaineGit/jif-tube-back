@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
+from uuid import UUID
 from datetime import datetime
 import re
 
@@ -40,7 +41,7 @@ class UserUpdate(BaseModel):
         return v
 
 class UserRead(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     role: str
@@ -58,4 +59,4 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
-    user_id: Optional[int] = None
+    user_id: Optional[UUID] = None

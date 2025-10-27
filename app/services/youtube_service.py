@@ -3,6 +3,7 @@ import requests
 import hashlib
 import time
 from typing import List, Dict, Any, Optional
+from uuid import UUID
 from sqlmodel import Session
 from difflib import SequenceMatcher
 from datetime import datetime, timezone
@@ -47,7 +48,7 @@ class YouTubeService:
     def search(
         self,
         query: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[UUID] = None,
         max_results: Optional[int] = None,
         region_code: Optional[str] = None
     ) -> List[SongSearchResult]:
@@ -56,7 +57,7 @@ class YouTubeService:
         
         Args:
             query: Término de búsqueda
-            user_id: ID del usuario (para logging). None = búsqueda anónima
+            user_id: UUID del usuario (para logging). None = búsqueda anónima
             max_results: Límite de resultados (default: config)
             region_code: Código de región (default: AR)
             
@@ -419,7 +420,7 @@ class YouTubeService:
             print(f"Error processing video {item.get('id')}: {e}")
             return None
 
-    def _log_search(self, user_id: int, query: str) -> None:
+    def _log_search(self, user_id: UUID, query: str) -> None:
         """Log búsqueda en history."""
         try:
             self.search_repo.log_search(user_id, query)

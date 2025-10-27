@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from app.core.config import settings, validate_settings
 from app.db.session import create_db_and_tables, SessionLocal
-from app.api import auth, users, search, songs, library 
+from app.api import auth, users, search, songs, library, liked_songs
 from app.services.cache_service import CacheService
 from app.repositories.users import UsersRepository
 from app.models import User
@@ -120,6 +120,7 @@ app = FastAPI(
     * **Autenticación JWT**: Register, login, refresh tokens
     * **Búsqueda**: Busca canciones en YouTube con cache inteligente
     * **Biblioteca personal**: Guarda tus canciones favoritas
+    * **Likes**: Marca canciones que te gustaron
     * **Historial**: Tracking de búsquedas
     
     ## Auth
@@ -192,6 +193,7 @@ app.include_router(users.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(songs.router, prefix="/api")
 app.include_router(library.router, prefix="/api")
+app.include_router(liked_songs.router, prefix="/api")
 
 # GLOBAL ENDPOINTS
 

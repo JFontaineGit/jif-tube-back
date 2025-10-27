@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from uuid import UUID
 from jose import jwt, JWTError
 from app.core.config import settings
 from app.models import pwd_context
@@ -41,14 +42,18 @@ class JWTHandler:
             refresh_token_expire_days or settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
     
-    def create_access_token(self, subject: str, user_id: int, scopes: list = None) -> str:
-        """
-        Crea access token.
-        
+    def create_access_token(
+        self,
+        user_id: UUID,
+        username: str,
+        scopes: Optional[List[str]] = None,
+    ) -> str:
+        """Crea un access token firmado.
+
         Args:
-            subject: Username
-            user_id: ID del usuario (para evitar queries extra)
-            scopes: Lista de roles/permisos
+            user_id: Identificador del usuario (UUID).
+            username: Username del usuario (útil para auditoría/UI).
+            scopes: Lista de roles/permisos opcionales.
         """
         if scopes is None:
             scopes = []
@@ -57,31 +62,42 @@ class JWTHandler:
         expire = now + timedelta(minutes=self.access_token_expire_minutes)
         
         payload = {
-            "sub": subject,
-            "user_id": user_id,  # ✅ Agregado
+            "sub": str(user_id),
+            "user_id": str(user_id),
+            "username": username,
             "scopes": scopes,
             "exp": expire,
             "iat": now,
             "jti": str(uuid.uuid4()),
             "type": "access"
         }
-        
+
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
-    def create_refresh_token(self, subject: str, user_id: int) -> str:
-        """Crea refresh token."""
+    def create_refresh_token(
+        self,
+        user_id: UUID,
+        username: str,
+        scopes: Optional[List[str]] = None,
+    ) -> str:
+        """Crea un refresh token con claims alineadas al access token."""
+        if scopes is None:
+            scopes = []
+
         now = datetime.now(timezone.utc)
         expire = now + timedelta(days=self.refresh_token_expire_days)
-        
+
         payload = {
-            "sub": subject,
-            "user_id": user_id,
+            "sub": str(user_id),
+            "user_id": str(user_id),
+            "username": username,
+            "scopes": scopes,
             "exp": expire,
             "iat": now,
             "jti": str(uuid.uuid4()),
             "type": "refresh"
         }
-        
+
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
     def decode_token(self, token: str) -> Optional[Dict[str, Any]]:

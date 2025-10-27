@@ -3,6 +3,7 @@ from .songs import SongsRepository
 from .cache import CacheRepository
 from .search import SearchRepository
 from .library import LibraryRepository
+from .liked_songs import LikedSongsRepository
 
 __all__ = [
     "UsersRepository",
@@ -10,4 +11,5 @@ __all__ = [
     "CacheRepository",
     "SearchRepository",
     "LibraryRepository",
+    "LikedSongsRepository",
 ]

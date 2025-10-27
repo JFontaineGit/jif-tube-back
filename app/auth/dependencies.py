@@ -1,54 +1,19 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session
-import jwt
-from jwt import PyJWTError
+"""Backward-compatible import shim for auth dependencies."""
 
-from app.db import SessionDep, get_db
-from app.models import User
+from app.api.dependencies import (
+    get_current_user,
+    get_current_active_user,
+    get_current_user_optional,
+    require_admin,
+    get_user_id,
+    require_bearer_token,
+)
 
-# Configuración JWT (misma que en auth.py)
-SECRET_KEY = "6e4486e782d27b01c63ce61fa2ad197df535f3f1f2fa91a128d6f2ac71772576"
-ALGORITHM = "HS256"
-
-security = HTTPBearer()
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    session: Session = Depends(get_db)
-) -> User:
-    """Obtiene el usuario actual basado en el token JWT"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        
-        # Verificar que es un token de acceso
-        if payload.get("type") != "access":
-            raise credentials_exception
-            
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-            
-    except PyJWTError:
-        raise credentials_exception
-    
-    # Buscar usuario en la base de datos
-    user = session.get(User, int(user_id))
-    if user is None:
-        raise credentials_exception
-    
-    return user
-
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """Obtiene el usuario actual y verifica que esté activo"""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+__all__ = [
+    "get_current_user",
+    "get_current_active_user",
+    "get_current_user_optional",
+    "require_admin",
+    "get_user_id",
+    "require_bearer_token",
+]
