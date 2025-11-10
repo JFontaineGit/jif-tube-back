@@ -11,8 +11,12 @@ from app.models import User
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
-def require_bearer_token(token: str = Depends(oauth2_scheme)) -> str:
-    """Ensure that a Bearer token is present and return it."""
+def require_bearer_token(token: Optional[str] = Depends(oauth2_scheme)) -> str:
+    """
+    Ensure that a Bearer token is present and return it.
+    
+    IMPORTANTE: Este dependency solo se debe usar en endpoints que REQUIEREN auth.
+    """
     if not token:
         raise _bearer_exception(
             "Missing or invalid access token. Include Authorization: Bearer <token>"
@@ -41,7 +45,11 @@ def get_current_user_optional(
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
-    """Optional auth dependency. Returns the user or ``None`` if missing/invalid."""
+    """
+    Optional auth dependency. Returns the user or None if missing/invalid.
+    
+    ✅ Este SÍ puede usarse en endpoints que tienen auth opcional
+    """
     if not token:
         return None
 

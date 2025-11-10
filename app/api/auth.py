@@ -16,6 +16,8 @@ def register(
     """
     Registra un nuevo usuario.
     
+    ✅ PÚBLICO - No requiere autenticación
+    
     - **username**: Único, 3-50 caracteres
     - **email**: Email válido, único
     - **password**: Mínimo 8 caracteres, debe cumplir requisitos de seguridad
@@ -32,10 +34,15 @@ def login(
     """
     Login con username/email + password.
     
+    ✅ PÚBLICO - No requiere autenticación
+    
     Retorna access token (15 min) y refresh token (7 días).
     
     - **username**: Username o email
     - **password**: Password del usuario
+    
+    IMPORTANTE: Este endpoint NO debe tener dependency de require_bearer_token
+    porque estás OBTENIENDO el token, no validándolo.
     """
     service = AuthService(db)
     return service.authenticate(form_data.username, form_data.password)
@@ -49,7 +56,12 @@ def refresh(
     """
     Renueva tokens usando refresh token.
     
+    ✅ PÚBLICO - No requiere Bearer token en header (usa refresh_token en body)
+    
     El refresh token viejo se invalida (forward secrecy).
+    
+    IMPORTANTE: NO uses require_bearer_token aquí porque el refresh_token
+    va en el BODY, no en el header Authorization.
     """
     service = AuthService(db)
     return service.refresh_tokens(refresh_token)
@@ -63,7 +75,12 @@ def logout(
     """
     Cierra sesión invalidando el refresh token.
     
+    ✅ PÚBLICO - No requiere Bearer token en header (usa refresh_token en body)
+    
     El access token seguirá válido hasta que expire (15 min).
+    
+    IMPORTANTE: NO uses require_bearer_token aquí porque el refresh_token
+    va en el BODY, no en el header Authorization.
     """
     service = AuthService(db)
     service.logout(refresh_token)
